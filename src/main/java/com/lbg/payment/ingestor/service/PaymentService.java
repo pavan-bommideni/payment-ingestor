@@ -15,11 +15,17 @@ import jakarta.validation.ConstraintViolation;
 import jakarta.validation.ConstraintViolationException;
 import jakarta.validation.Validator;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 
+import java.math.BigDecimal;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
+import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 
 @Service
 public class PaymentService {
@@ -95,5 +101,45 @@ public class PaymentService {
                 .build());
 
         return new PaymentResponse(paymentRequest.getPaymentId(), "Payment processed successfully");
+    }
+
+    // Methods to load payments requests of 10k in cocurrent way
+    public List<CompletableFuture<PaymentResponse>> processPaymentsInParallel() {
+        List<PaymentRequest> bulkRequest = createBulkPaymentRequests(10000);
+        return bulkRequest.stream()
+            .map(request -> {
+                try {
+                    return processPaymentAsync(request);
+                } catch (JsonProcessingException e) {
+                    throw new RuntimeException("Failed to process payment request", e);
+                }
+            }).toList();
+    }
+
+
+    @Async
+    private CompletableFuture<PaymentResponse> processPaymentAsync(PaymentRequest paymentRequest) throws JsonProcessingException {
+        try {
+            PaymentResponse response = processPayment(paymentRequest);
+            return CompletableFuture.completedFuture(response);
+        } catch (Exception e) {
+            throw new RuntimeException("Async payment processing failed", e);
+        }
+    }
+
+
+    private List<PaymentRequest> createBulkPaymentRequests(int count) {
+        return IntStream.range(0, count)
+            .mapToObj(i -> {
+                PaymentRequest request = new PaymentRequest();
+                request.setPaymentId(UUID.randomUUID().toString());
+                request.setDebitAccountId("30-91-44/12309876");
+                request.setCreditAccountId("20-15-88/43917265");
+                request.setAmount(new BigDecimal(17059.38));
+                request.setCurrency("GBP");
+                request.setReference("BULK-PAYMENT-" + (i + 1));
+                request.setTimestamp(java.time.Instant.now());
+                return request;
+            }).collect(Collectors.toList());
     }
 }
