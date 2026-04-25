@@ -17,7 +17,11 @@
 - Copy CLUSTER API KEY and CLUSTER API SECRET
 - Update Kafka bootstrap server details, APIKEY and SECRET in project application.properties file.
 
+## Reference
 
+### Payment-processor - Consumer application for reading the messages from this payment-ingestor
+
+- Repository Link :  https://github.com/pavan-bommideni/payment-processor
 
 
 
